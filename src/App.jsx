@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import './App.css'
 import './SignIn.css'
+import { supabase } from './lib/supabase'
 import ProctorDashboard from './ProctorDashboard'
 import HODDashboard from './HODDashboard'
 import EventInChargeDashboard from './EventInChargeDashboard'
