@@ -210,10 +210,11 @@ select
                                                            then 'Below the ' || s.min_attendance || '% threshold'
   end as reason
 from public.profiles p
-cross join public.settings s
-left join public.attendance_records ar on ar.import_id = public.active_attendance_import_id ()
-and ar.student_id = p.id
-where p.role = 'student';
+    cross join public.settings s
+    left join public.attendance_records ar on ar.import_id = public.active_attendance_import_id ()
+    and ar.student_id = p.id
+where
+    p.role = 'student';
 
 -- ---------------------------------------------------------------------
 -- 4. ROW LEVEL SECURITY
@@ -396,38 +397,35 @@ begin
     raise exception 'A reason is required to reject or return a request';
   end if;
 
-select * into e
-from student_eligibility
-where
-    student_id = r.student_id;
 
-if p_decision = 'Approved' then if not found
-or e.eligibility is null then raise exception 'Eligibility data is unavailable; approval is blocked';
+  select * into e
+  from public.student_eligibility
+  where student_id = r.student_id;
 
-end if;
+  if p_decision = 'Approved' then
+    if not found or e.eligibility is null then
+      raise exception 'Eligibility data is unavailable; approval is blocked';
+    end if;
 
-if e.eligibility is distinct
-from 'Eligible' then if not(
+    if e.eligibility is distinct from 'Eligible' then
+      if not (
         select allow_override
-        from settings
-        where
-            id = 1
-    ) then raise exception 'Student is "%" and overrides are disabled in settings', e.eligibility;
+        from public.settings
+        where id = 1
+      ) then
+        raise exception 'Student is "%" and overrides are disabled in settings',
+          e.eligibility;
+      end if;
 
-end if;
+      if not coalesce(p_override, false)
+         or coalesce(trim(p_remarks), '') = '' then
+        raise exception 'Student is "%" (%). Approval needs an explicit override with remarks.',
+          e.eligibility, coalesce(e.reason, '');
+      end if;
 
-if not coalesce(p_override, false)
-or coalesce(trim(p_remarks), '') = '' then raise exception 'Student is "%" (%). Approval needs an explicit override with remarks.',
-e.eligibility,
-coalesce(e.reason, '');
-
-end if;
-
-v_override := true;
-
-end if;
-
-end if;
+      v_override := true;
+    end if;
+  end if;
 
   v_from := r.status;
   update event_requests set status = p_decision, override_used = v_override, updated_at = now(),
@@ -521,10 +519,19 @@ begin
                      else v_raw_date::date end;
       if v_date > current_date then raise exception 'Data As Of date is in the future'; end if;
 
-      v_pct := nullif(replace(trim(coalesce(v_row->>'attendance_pct','')), '%', ''), '')::numeric;
+      v_pct := nullif(
+        replace(trim(coalesce(v_row->>'attendance_pct', '')), '%', ''),
+        ''
+      )::numeric;
+
+      if v_pct is not null and (v_pct < 0 or v_pct > 100) then
+        raise exception 'Attendance percentage must be between 0 and 100';
+      end if;
+
       if v_pct is not null and v_cond > 0
          and abs(v_pct - round(v_att * 100.0 / v_cond, 2)) > 1 then
-        raise exception 'Attendance %% (%) does not match counts (% / %)', v_pct, v_att, v_cond;
+        raise exception 'Attendance %% (%) does not match counts (% / %)',
+          v_pct, v_att, v_cond;
       end if;
 
       insert into attendance_records (import_id, student_id, classes_conducted, classes_attended, data_as_of)
