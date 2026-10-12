@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import './App.css'
+import './SignIn.css'
 import ProctorDashboard from './ProctorDashboard'
+import HODDashboard from './HODDashboard'
 
 const initialRequests = [
   {
@@ -65,7 +67,121 @@ const emptyForm = {
   startDate: '', endDate: '', eventUrl: '', purpose: '', supportingDocument: null,
 }
 
+const roleOptions = [
+  { value: 'student', label: 'Student' },
+  { value: 'proctor', label: 'Proctor' },
+  { value: 'hod', label: 'Head of Department (HOD)' },
+  { value: 'event-in-charge', label: 'Technical Event In-Charge' },
+]
+
+function SignInPage({ onSignIn }) {
+  const [role, setRole] = useState('student')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    if (!email.trim() || !password.trim()) {
+      alert('Please enter your email and password.')
+      return
+    }
+    onSignIn(role, email.trim())
+  }
+
+  return (
+    <div className="signin-page">
+      <div className="signin-card">
+        <div className="signin-brand">
+          <div className="signin-logo">EG</div>
+          <p className="signin-eyebrow">COLLEGE EVENT MANAGEMENT</p>
+          <h1>Event Gate</h1>
+          <p className="signin-subtitle">One portal. Clear approvals. Confident participation.</p>
+        </div>
+
+        <div className="signin-divider" />
+
+        <form className="signin-form" onSubmit={handleSubmit}>
+          <div>
+            <h2>Welcome back</h2>
+            <p className="signin-description">Sign in to continue to your dashboard.</p>
+          </div>
+
+          <label htmlFor="signin-role">Sign in as</label>
+          <select id="signin-role" value={role} onChange={(event) => setRole(event.target.value)}>
+            {roleOptions.map((option) => (
+              <option value={option.value} key={option.value}>{option.label}</option>
+            ))}
+          </select>
+
+          <label htmlFor="signin-email">Email address</label>
+          <input
+            id="signin-email"
+            type="email"
+            autoComplete="username"
+            placeholder="you@college.edu"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+
+          <label htmlFor="signin-password">Password</label>
+          <div className="signin-password-wrap">
+            <input
+              id="signin-password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+            <button type="button" className="signin-show-password" onClick={() => setShowPassword((value) => !value)}>
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </div>
+
+          <button className="signin-submit" type="submit">Sign In <span>→</span></button>
+          <p className="signin-demo-note">
+            Frontend demo: any non-empty email and password will work. Real authentication will be connected through Supabase later.
+          </p>
+        </form>
+        <p className="signin-footer">Event Gate · Academic Year 2026–2027</p>
+      </div>
+    </div>
+  )
+}
+
+function EventInChargePlaceholder({ onBackToStudent, onSignOut }) {
+  return (
+    <div className="app">
+      <aside className="sidebar">
+        <div className="brand"><h2>Event Gate</h2><p>Event Participation Portal</p></div>
+        <nav><a className="active" href="#" onClick={(event) => event.preventDefault()}>Dashboard</a></nav>
+        <div className="sidebar-bottom"><p>Technical Event In-Charge</p><span>Final approval authority</span></div>
+      </aside>
+      <main className="main-content">
+        <header className="topbar">
+          <div><p className="welcome">Approval workspace</p><h1>Technical Event In-Charge</h1></div>
+          <div className="student-info">
+            <button className="secondary-btn" onClick={onBackToStudent}>Student Demo</button>
+            <button className="secondary-btn" onClick={onSignOut}>Sign Out</button>
+          </div>
+        </header>
+        <section className="card full-page-card">
+          <div className="card-header"><div><h2>Final Approval & Reports</h2><p>This dashboard is the next page we are building.</p></div></div>
+          <p>It will include requests approved by the HOD, final approve/reject actions, and Excel/PDF export for approved participation records.</p>
+          <p>The HOD will also receive an attendance list for approval and sign-off, including the recorded date and time.</p>
+          <button className="primary-btn" onClick={onBackToStudent}>Return to Student Demo</button>
+        </section>
+      </main>
+    </div>
+  )
+}
+
 function App() {
+  const [isSignedIn, setIsSignedIn] = useState(false)
+  const [signedInEmail, setSignedInEmail] = useState('')
   const [dashboardMode, setDashboardMode] = useState('student')
   const [activePage, setActivePage] = useState('Dashboard')
   const [showRequest, setShowRequest] = useState(false)
@@ -73,8 +189,48 @@ function App() {
   const [requests, setRequests] = useState(initialRequests)
   const [formData, setFormData] = useState(emptyForm)
 
+  const signIn = (role, email) => {
+    setSignedInEmail(email)
+    setDashboardMode(role)
+    setActivePage('Dashboard')
+    setIsSignedIn(true)
+  }
+
+  const signOut = () => {
+    setIsSignedIn(false)
+    setSignedInEmail('')
+    setDashboardMode('student')
+    setActivePage('Dashboard')
+    setShowRequest(false)
+  }
+
+  if (!isSignedIn) {
+    return <SignInPage onSignIn={signIn} />
+  }
+
   if (dashboardMode === 'proctor') {
-    return <ProctorDashboard onBackToStudent={() => { setDashboardMode('student'); setActivePage('Dashboard') }} />
+    return (
+      <ProctorDashboard
+        onBackToStudent={() => { setDashboardMode('student'); setActivePage('Dashboard') }}
+      />
+    )
+  }
+
+  if (dashboardMode === 'hod') {
+    return (
+      <HODDashboard
+        onBackToStudent={() => { setDashboardMode('student'); setActivePage('Dashboard') }}
+      />
+    )
+  }
+
+  if (dashboardMode === 'event-in-charge') {
+    return (
+      <EventInChargePlaceholder
+        onBackToStudent={() => { setDashboardMode('student'); setActivePage('Dashboard') }}
+        onSignOut={signOut}
+      />
+    )
   }
 
   const approvedCount = requests.filter((request) => request.status === 'Approved').length
@@ -125,7 +281,6 @@ function App() {
       alert('End date cannot be before start date.')
       return
     }
-
     const nextNumber = Math.max(0, ...requests.map((request) => Number(request.id.split('-').at(-1)) || 0)) + 1
     const newRequest = {
       id: `EG-2026-${String(nextNumber).padStart(3, '0')}`,
@@ -209,7 +364,7 @@ function App() {
             <div className="profile-field"><span>Full Name</span><strong>Bhavyasri</strong></div>
             <div className="profile-field"><span>Role</span><strong>Student</strong></div>
             <div className="profile-field"><span>Roll Number</span><strong>Example</strong></div>
-            <div className="profile-field"><span>Email</span><strong>Example</strong></div>
+            <div className="profile-field"><span>Email</span><strong>{signedInEmail || 'Example'}</strong></div>
             <div className="profile-field"><span>Phone</span><strong>Example</strong></div>
           </div>
         </div>
@@ -279,9 +434,16 @@ function App() {
             <h1>{activePage}</h1>
           </div>
           <div className="student-info">
-            {activePage === 'Dashboard' && <button className="primary-btn" onClick={() => setDashboardMode('proctor')}>Open Proctor Demo →</button>}
+            {activePage === 'Dashboard' && (
+              <div className="demo-dashboard-buttons">
+                <button className="primary-btn" onClick={() => setDashboardMode('proctor')}>Open Proctor Demo →</button>
+                <button className="primary-btn" onClick={() => setDashboardMode('hod')}>Open HOD Demo →</button>
+                <button className="primary-btn" onClick={() => setDashboardMode('event-in-charge')}>Open Event In-Charge →</button>
+              </div>
+            )}
             <div className="avatar">BS</div>
             <div><strong>Bhavyasri</strong><span>Student</span></div>
+            <button className="secondary-btn" onClick={signOut}>Sign Out</button>
           </div>
         </header>
 
